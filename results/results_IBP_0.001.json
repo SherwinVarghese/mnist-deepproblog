@@ -1,0 +1,7 @@
+{
+    "method": "IBP",
+    "num_samples_verified": "10000",
+    "num_samples_correctly_classified": "9764",
+    "num_samples_safe": "9748",
+    "epsilon": "0.001"
+}
