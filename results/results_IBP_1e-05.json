@@ -2,6 +2,6 @@
     "method": "IBP",
     "num_samples_verified": "10000",
     "num_samples_correctly_classified": "9764",
-    "num_samples_safe": "9757",
+    "num_samples_safe": "9754",
     "epsilon": "1e-05"
 }

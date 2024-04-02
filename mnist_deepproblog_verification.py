@@ -243,8 +243,8 @@ def calculate_bounds(
             num_samples_correctly_classified += 1 if classification_correct else 0
 
             # The `bound_sotmax` results in nan, using torch Softmax instead.
-            # lb_sm, ub_sm = bound_softmax(lb, ub, use_float64=True)
-            lb_sm, ub_sm = torch.nn.Softmax(dim=1)(lb), torch.nn.Softmax(dim=1)(ub)
+            lb_sm, ub_sm = bound_softmax(lb, ub, use_float64=True)
+            # lb_sm, ub_sm = torch.nn.Softmax(dim=1)(lb), torch.nn.Softmax(dim=1)(ub)
 
             # Sanity check that post-softmax bounds are a valid probability, i.e. between 0 and 1
             assert 0 <= (lb_sm).all(), f"Lower bound lower than 0"
@@ -315,7 +315,7 @@ def calculate_bounds(
                     print(
                         "f_{j}(x_0): {l:8.3f} <= f_{j}(x_0+delta) <= {u:8.3f} {ind} {pred} {safe}".format(
                             j=j,
-                            l=lb[i][j].item(),
+                            l=lb_sm[i][j].item(),
                             u=ub_sm[i][j].item(),
                             ind=indicator,
                             pred=pred_indicator,
@@ -327,7 +327,7 @@ def calculate_bounds(
                 )
                 new_row[f"classification_{j}_lb"] = lb_sm[i][j].item()
                 new_row[f"classification_{j}_ub"] = ub_sm[i][j].item()
-                new_row["classification_prediction_idx"] = preds[i][j].item()
+                new_row["classification_prediction_idx"] = pred_targets[i].item()
                 new_row["classification_target_idx"] = targets[i].item()
                 new_row["classification_correct"] = classification_correct
                 new_row["classification_correct_safe_pgd_attack_success"] = (
