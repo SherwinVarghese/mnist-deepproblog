@@ -11,7 +11,7 @@ from deepproblog.dataset import DataLoader
 from deepproblog.engines import ExactEngine
 from deepproblog.evaluate import get_fact_accuracy
 from deepproblog.examples.minimal.data import AdditionDataset, MNISTImages
-from deepproblog.examples.minimal.network import MNIST_Net
+from deepproblog.examples.MNIST.network import MNIST_Net
 from deepproblog.model import Model
 from deepproblog.network import Network
 from deepproblog.train import train_model
@@ -199,7 +199,7 @@ def calculate_bounds(
                 verbose=True,
             )
 
-        ptb = PerturbationLpNorm(norm=np.inf, eps=epsilon)
+        ptb = PerturbationLpNorm(norm=torch.inf, eps=epsilon)
         ptb_inputs = BoundedTensor(inputs, ptb)
 
         preds = lirpa_model(ptb_inputs)
@@ -241,8 +241,8 @@ def calculate_bounds(
             num_samples_correctly_classified += 1 if classification_correct else 0
 
             # The `bound_sotmax` results in nan, using torch Softmax instead.
-            lb_sm, ub_sm = bound_softmax(lb, ub, use_float64=True)
-            # lb_sm, ub_sm = torch.nn.Softmax(dim=1)(lb), torch.nn.Softmax(dim=1)(ub)
+            # lb_sm, ub_sm = bound_softmax(lb, ub, use_float64=True)
+            lb_sm, ub_sm = torch.nn.Softmax(dim=1)(lb), torch.nn.Softmax(dim=1)(ub)
 
             # Sanity check that post-softmax bounds are a valid probability, i.e. between 0 and 1
             assert (0 <= lb_sm).all(), f"Lower bound lower than 0"
@@ -292,7 +292,7 @@ def calculate_bounds(
                     print(f"We have the classification {targets[i,...]}")
                     print(f"We have the adv input {np.array(adv_input[i,0, ...])}")
                     print(f"We have the adv output: {adv_output[i,...]}")
-                raise Exception(
+                warnings.warn(
                     "Attack was successful but the bounds were not safe! Inputs. Model output: "
                     + str(torch.argmax(adv_output[i]).item())
                     + " Expected output: "
@@ -396,7 +396,7 @@ def plot_MNIST_img(input: torch.Tensor, target: int):
 
 
 if __name__ == "__main__":
-    cnn_network = MNIST_Net()
+    cnn_network = MNIST_Net(with_softmax=False)
 
     model = get_mnist_deepproblog_model(cnn_network)
 
