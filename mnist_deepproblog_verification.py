@@ -53,7 +53,6 @@ RESULTS_COLUMNS = [
     "classification_prediction_idx",  # Note: ouputs of NN are defined as 'predictions'
     "classification_target_idx",  # Note: labels are defined as 'targets'
     "classification_correct",
-    "classification_correct_safe_pgd_attack_success",
     "classification_safe",
 ]
 MODEL_PATH = Path(__file__).parent.resolve() / "checkpoints"
@@ -123,7 +122,6 @@ def bound_softmax(h_L, h_U, use_float64=False):
     upper = exp_U / (torch.sum(exp_L, dim=1, keepdim=True) - exp_L + exp_U)
 
     return lower, upper
-
 
 def get_mnist_deepproblog_model(network_module: torch.nn.Module) -> Model:
     """Read a trained MNIST model from a file if present, otherwise train the model and return a DeepProblog Model
@@ -247,13 +245,13 @@ def calculate_bounds(
             # lb_sm, ub_sm = torch.nn.Softmax(dim=1)(lb), torch.nn.Softmax(dim=1)(ub)
 
             # Sanity check that post-softmax bounds are a valid probability, i.e. between 0 and 1
-            assert 0 <= (lb_sm).all(), f"Lower bound lower than 0"
-            assert (lb_sm).all() <= 1, f"Lower bound greater than 1"
-            assert 0 <= (ub_sm).all(), f"Upper bound lower than 0"
-            assert (ub_sm).all() <= 1, f"Upper bound greater than 1"
+            assert (0 <= lb_sm).all(), f"Lower bound lower than 0"
+            assert (lb_sm <= 1).all(), f"Lower bound greater than 1"
+            assert (0 <= ub_sm).all(), f"Upper bound lower than 0"
+            assert (ub_sm <= 1).all(), f"Upper bound greater than 1"
 
             # The model performs softmax in the last layer
-            # softmax_preds = torch.softmax(preds[i], dim=0)
+            # softmax_preds = torch.softmax(preds[i], dim=0).to(torch.float64)
             # if round_floats:
             #     softmax_preds = round_tensor(softmax_preds, decimals=5)
             # assert approx_gte(softmax_preds, lb_sm[i], 1e-5), f"{dl_idx} {i}"
@@ -269,7 +267,7 @@ def calculate_bounds(
                     > torch.cat(
                         (
                             ub_sm[i][:truth_idx],
-                            ub_sm[i][truth_idx + 1 :],
+                            ub_sm[i][truth_idx + 1:],
                         )
                     )
                 )
@@ -280,9 +278,6 @@ def calculate_bounds(
             else:
                 classification_safe = False
 
-            # Keep track if the input was classified correctly and bounds were safe, but pgd attack was successful
-            classification_correct_safe_pgd_attack_success = False
-
             if attack_results[i] and classification_safe:
                 a, adv_output, adv_input = pgd(
                     model,
@@ -292,13 +287,12 @@ def calculate_bounds(
                     final_layer=False,
                     return_model_output=True,
                 )
-                classification_correct_safe_pgd_attack_success = True
                 if PRINT:
                     print(f"For the input {np.array(inputs[i,0,...])}")
                     print(f"We have the classification {targets[i,...]}")
                     print(f"We have the adv input {np.array(adv_input[i,0, ...])}")
                     print(f"We have the adv output: {adv_output[i,...]}")
-                warnings.warn(
+                raise Exception(
                     "Attack was successful but the bounds were not safe! Inputs. Model output: "
                     + str(torch.argmax(adv_output[i]).item())
                     + " Expected output: "
@@ -307,7 +301,7 @@ def calculate_bounds(
 
             for j in range(NUM_DIGIT_CLASSES):
                 indicator = "(ground-truth)" if j == truth_idx else ""
-                pred_indicator = "(prediction)" if j == truth_idx else ""
+                pred_indicator = "(prediction)" if j == pred_targets[i].item() else ""
                 safe_indicator = (
                     "(safe)" if j == truth_idx and classification_safe else ""
                 )
@@ -330,13 +324,9 @@ def calculate_bounds(
                 new_row["classification_prediction_idx"] = pred_targets[i].item()
                 new_row["classification_target_idx"] = targets[i].item()
                 new_row["classification_correct"] = classification_correct
-                new_row["classification_correct_safe_pgd_attack_success"] = (
-                    classification_correct_safe_pgd_attack_success
-                )
             safe = (
                 True
                 if classification_safe
-                and not classification_correct_safe_pgd_attack_success
                 else False
             )
             new_row["classification_safe"] = safe
